@@ -1,0 +1,193 @@
+= Spring Boot using REST and JPA example
+
+
+
+
+Additional dependencies include Hibernate Validator, as we will be doing some validation. HSQLDB will be the database engine, chosen here because it can be easily embedded and has in memory database feature which is handy for tutorial purposes. Notice I haven't specified versions for these - they are managed by ``spring-boot-starter-parent``.
+
+
+== `User` model
+
+[source,java]
+----
+package example.model;
+
+import com.google.common.base.MoreObjects;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
+
+@Entity
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "id", nullable = false, updatable = false)
+    private Long id;
+
+    @NotNull
+    @Size(max = 64)
+    @Column(name = "login", nullable = false)
+    private String login;
+
+    public User() {
+    }
+
+    public User(Long id, String login) {
+        this.id = id;
+        this.login = login;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getLogin() {
+        return login;
+    }
+
+    public void setLogin(String login) {
+        this.login = login;
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                .add("id", id)
+                .add("login", login)
+                .toString();
+    }
+}
+----
+
+
+
+== `UserRepository`
+
+[source,java]
+----
+package example.repository;
+
+import example.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface UserRepository extends JpaRepository<User, Long> {
+
+}
+----
+
+
+== UserService
+
+[source,java]
+----
+package example.service;
+
+import example.model.User;
+
+import java.util.List;
+
+public interface UserService {
+
+    User save(User user);
+
+    List<User> getList();
+
+}
+----
+
+
+=== UserServiceImpl
+
+[source,java]
+----
+package example.service;
+
+import example.model.User;
+import example.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.validation.annotation.Validated;
+
+import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
+import java.util.List;
+
+@Service
+@Validated
+public class UserServiceImpl implements UserService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(UserServiceImpl.class);
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Override
+    public User save(@NotNull @Valid User user) {
+        LOGGER.debug("save User {}", user);
+        return userRepository.save(user);
+    }
+
+    @Override
+    public List<User> getList() {
+        LOGGER.debug("Retrieving the list of all users");
+        return userRepository.findAll();
+    }
+}
+
+----
+
+
+
+== `UserController`
+
+[source,java]
+----
+package example.controller;
+
+import example.model.User;
+import example.service.UserService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
+
+import javax.validation.Valid;
+import java.util.List;
+
+@RestController
+@RequestMapping("/user")
+public class UserController {
+
+    private static Logger LOGGER = LoggerFactory.getLogger(UserController.class);
+
+    @Autowired
+    private UserService userService;
+
+    @RequestMapping(method = RequestMethod.POST)
+    public User createUser(@RequestBody @Valid final User user) {
+        LOGGER.debug("Received request to create the {}", user);
+        return userService.save(user);
+    }
+
+    @RequestMapping(method = RequestMethod.GET)
+    public List<User> getUsers() {
+        LOGGER.debug("Received request to list all users");
+        return userService.getList();
+    }
+}
+----
